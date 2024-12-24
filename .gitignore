@@ -1,0 +1,32 @@
+# 설정 파일 제외
+config.json
+
+# 로그 파일 제외
+*.log
+
+# Python 관련 파일 제외
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE 관련 파일 제외
+.idea/
+.vscode/
+*.swp
+*.swo
