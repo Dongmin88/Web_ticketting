@@ -107,35 +107,58 @@ class TicketingApp(QMainWindow):
     def fetch_concerts(self, date_str):
         """선택된 날짜의 공연 정보 크롤링"""
         try:
-            # 인터파크 공연 검색 URL
-            url = f"http://ticket.interpark.com/TPGoodsList.asp?txtDate={date_str}"
+            # 인터파크 공연 검색 URL (웹페이지 직접 접근)
+            url = f"https://ticket.interpark.com/TPGoodsList.asp?Ca=Con&Date={date_str}"
             
-            # 웹 페이지 요청
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
+                'Connection': 'keep-alive',
+                'Referer': 'https://ticket.interpark.com/'
             }
+            
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             
             # BeautifulSoup으로 파싱
             soup = BeautifulSoup(response.text, 'html.parser')
-            concert_list = soup.find_all('div', class_='concert_info')
             
-            # 콘서트 정보 저장 및 콤보박스 업데이트
+            # 공연 목록 찾기 (실제 HTML 구조에 맞게 선택자 수정)
+            concert_list = soup.select('.Rk_gen2')
+            
             self.concert_combo.clear()
             self.concert_data.clear()
             
             for concert in concert_list:
-                title = concert.find('a', class_='concert_title').text.strip()
-                code = concert.find('a')['href'].split('GoodsCode=')[1]
-                self.concert_data[title] = {
-                    'code': code,
-                    'seats': self.fetch_seat_grades(code)
-                }
-                self.concert_combo.addItem(title)
+                try:
+                    # 공연 제목과 링크 추출
+                    title_elem = concert.select_one('.RKthumb > a')
+                    if title_elem:
+                        title = title_elem.get('title', '').strip()
+                        href = title_elem.get('href', '')
+                        
+                        # 공연 코드 추출
+                        if 'GoodsCode=' in href:
+                            code = href.split('GoodsCode=')[1].split('&')[0]
+                            
+                            if title and code:
+                                self.concert_data[title] = {
+                                    'code': code,
+                                    'seats': self.fetch_seat_grades(code)
+                                }
+                                self.concert_combo.addItem(title)
+                                self.log_display.append(f"공연 추가: {title}")
+                                
+                except Exception as e:
+                    self.logger.error(f"개별 공연 정보 파싱 실패: {str(e)}")
+                    continue
 
-            self.log_display.append(f"{date_str} 날짜의 공연 정보를 불러왔습니다.")
-            
+            if not self.concert_data:
+                self.log_display.append("해당 날짜에 등록된 공연이 없거나 정보를 가져오지 못했습니다.")
+            else:
+                self.log_display.append(f"{date_str} 날짜의 공연 정보를 불러왔습니다.")
+                
         except Exception as e:
             self.log_display.append(f"공연 정보 로딩 실패: {str(e)}")
             self.logger.error(f"공연 정보 로딩 실패: {str(e)}")
@@ -143,24 +166,34 @@ class TicketingApp(QMainWindow):
     def fetch_seat_grades(self, concert_code):
         """공연의 좌석 등급 정보 가져오기"""
         try:
-            url = f"http://ticket.interpark.com/Ticket/Goods/GoodsInfo.asp?GoodsCode={concert_code}"
+            url = f"https://ticket.interpark.com/Ticket/Goods/GoodsInfo.asp?GoodsCode={concert_code}"
+            
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3'
             }
+            
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
-            seat_elements = soup.find_all('div', class_='seat_grade')
-            
             seats = {}
-            for seat in seat_elements:
-                grade = seat.find('span', class_='grade').text.strip()
-                price = seat.find('span', class_='price').text.strip()
-                seats[grade] = price
-                
-            return seats
             
+            # 좌석 등급 정보 추출
+            seat_info = soup.select('.SeatDetail')
+            for seat in seat_info:
+                try:
+                    grade = seat.select_one('.GradeType').text.strip()
+                    price = seat.select_one('.Price').text.strip()
+                    if grade and price:
+                        seats[grade] = price
+                except Exception as e:
+                    self.logger.error(f"좌석 정보 파싱 실패: {str(e)}")
+                    continue
+                    
+            return seats
+                
         except Exception as e:
             self.logger.error(f"좌석 정보 로딩 실패: {str(e)}")
             return {}
