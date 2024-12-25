@@ -3,6 +3,7 @@ config.json
 
 # 로그 파일 제외
 *.log
+*.html
 
 # Python 관련 파일 제외
 __pycache__/
