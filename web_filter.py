@@ -71,7 +71,7 @@ class WebContentFilter:
     def filter_content(self, html_content, base_url=None):
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # 텍스트 콘텐츠 보존을 위해 blocked_tags에서 일부 태그 제외
+        # 텍스트 콘텐츠 보존을 위해 
         for tag in self.blocked_tags:
             for element in soup.find_all(tag):
                 # 텍스트 콘텐츠가 있다면 보존
